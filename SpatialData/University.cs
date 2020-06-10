@@ -1,5 +1,4 @@
 ﻿using System.Data.Entity.Spatial;
-using NetTopologySuite.Geometries;
 
 namespace SpatialData
 {
@@ -7,6 +6,6 @@ namespace SpatialData
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public Point Location { get; set; }
+        public DbGeography Location { get; set; }
     }
 }
