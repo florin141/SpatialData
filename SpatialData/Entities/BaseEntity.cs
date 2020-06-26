@@ -1,11 +1,11 @@
 ﻿using System.Data.Entity.Spatial;
 
-namespace SpatialData
+namespace SpatialData.Entities
 {
-    public class University
+    public abstract class BaseEntity
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public DbGeography Location { get; set; }
+        public DbGeography Geography { get; set; }
     }
 }
