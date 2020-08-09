@@ -3,7 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpatialData", "SpatialData\SpatialData.csproj", "{A501AB82-75D2-47D4-A85C-9335E3BC8D57}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spatial.Console", "SpatialData\Spatial.Console.csproj", "{A501AB82-75D2-47D4-A85C-9335E3BC8D57}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spatial.Data", "Spatial.Data\Spatial.Data.csproj", "{B025C7F6-6DE8-453D-840E-5F6233AB39A1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spatial.Core", "Spatial.Core\Spatial.Core.csproj", "{38723C5E-21AD-4C58-A26B-C4B2DAFDC6C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spatial.AixmTypes", "Aixm.Proxy\Spatial.AixmTypes.csproj", "{B0BAC13C-706C-41BC-8CED-2C2A5F96B290}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +21,18 @@ Global
 		{A501AB82-75D2-47D4-A85C-9335E3BC8D57}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A501AB82-75D2-47D4-A85C-9335E3BC8D57}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A501AB82-75D2-47D4-A85C-9335E3BC8D57}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B025C7F6-6DE8-453D-840E-5F6233AB39A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B025C7F6-6DE8-453D-840E-5F6233AB39A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B025C7F6-6DE8-453D-840E-5F6233AB39A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B025C7F6-6DE8-453D-840E-5F6233AB39A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38723C5E-21AD-4C58-A26B-C4B2DAFDC6C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38723C5E-21AD-4C58-A26B-C4B2DAFDC6C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38723C5E-21AD-4C58-A26B-C4B2DAFDC6C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38723C5E-21AD-4C58-A26B-C4B2DAFDC6C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0BAC13C-706C-41BC-8CED-2C2A5F96B290}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0BAC13C-706C-41BC-8CED-2C2A5F96B290}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0BAC13C-706C-41BC-8CED-2C2A5F96B290}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0BAC13C-706C-41BC-8CED-2C2A5F96B290}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

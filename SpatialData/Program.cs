@@ -1,155 +1,273 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Runtime.Serialization.Formatters;
-using GeoJSON.Net.Contrib.EntityFramework;
-using GeoJSON.Net.CoordinateReferenceSystem;
-using GeoJSON.Net.Feature;
-using GeoJSON.Net.Geometry;
-using Newtonsoft.Json;
-using SpatialData.Converters;
-using SpatialData.Entities;
+using _int.eurocontrol.cfmu.b2b.adrmessage;
+using Spatial.Core;
+using Spatial.Core.Data;
+using Spatial.Core.Domain;
+using Spatial.Data;
 
 namespace SpatialData
 {
     class Program
     {
-        private static Point point;
-        private static MultiPoint multiPoint;
-        private static LineString lineString;
-        private static MultiLineString multiLineString;
-        private static Polygon polygon;
-        private static MultiPolygon multiPolygon;
-        private static GeometryCollection geomCollection;
+        private const string FilePath = "C:\\aixm\\DesignatedPoint.xml";
 
-        private static JsonConverter dbGeographyConverter = new DbGeographyConverter();
+        private static readonly DesignatedPointFaker DesignatedPointFaker = new DesignatedPointFaker();
 
         static void Main(string[] args)
         {
-            Initialize();
+            //Generate X entities
+            var designatedPoints = GenerateDesignatedPoints(FilePath);
 
-            using (var context = new SpatialContext())
-            {
-                var entityToSave = new GeometryCollectionEntity()
-                {
-                    Name = nameof(GeometryCollectionEntity),
-                    Geography = geomCollection.ToDbGeography()
-                };
-
-                context.GeometryCollection.Add(entityToSave);
-
-                context.SaveChanges();
-
-                var pointFromDb = context.GeometryCollection
-                    .FirstOrDefault();
-
-                if (pointFromDb != null)
-                {
-                    var pointFromGeoJson = JsonConvert.SerializeObject(pointFromDb, 
-                        Formatting.Indented,
-                        dbGeographyConverter);
-
-                    var entityFromGeoJson = JsonConvert.DeserializeObject<PointEntity>(pointFromGeoJson, 
-                        dbGeographyConverter);
-
-                    var entityAsStr = JsonConvert.SerializeObject(entityFromGeoJson,
-                        Formatting.Indented,
-                        dbGeographyConverter);
-
-                    if (pointFromGeoJson == entityAsStr)
-                    {
-                        Console.WriteLine("Equal");
-                    }
-                }
-            }
+            SynchronizeDesignatedPoints(designatedPoints);
         }
 
-        private static void Initialize()
+        private static List<DesignatedPoint> GenerateDesignatedPoints(string filePath, int? count = null)
         {
-            point = new Point(new Position(53.2455662, 90.65464646));
+            Trace.WriteLine($"Generating designated points started at: {DateTime.Now}");
+            Console.WriteLine($"Generating designated points started at: {DateTime.Now}");
 
-            multiPoint = new MultiPoint(new List<Point>
+            var processStopwatch = new Stopwatch();
+            processStopwatch.Start();
+
+            #region Slow
+
+            var file = File.Open(filePath, FileMode.Open);
+
+            var serializer = new AixmSerializer<ADRMessageType>();
+
+            #endregion
+
+            var adrMessage = serializer.Deserialize(file);
+
+            var query = adrMessage.HasMember
+                .Select(x => x.DesignatedPoint);
+
+            if (count.HasValue)
             {
-                new Point(new Position(52.379790828551016, 5.3173828125)),
-                new Point(new Position(52.36721467920585, 5.456085205078125)),
-                new Point(new Position(52.303440474272755, 5.386047363281249, 4.23))
-            });
-            lineString = new LineString(new List<IPosition>
+                query = query.Take(count.Value);
+            }
+
+            var designatedPoints = query.ToList();
+
+            DbGeographyFactory factory = new DbGeographyFactory();
+            var hashSet = new HashSet<DesignatedPoint>();
+            foreach (var point in from element in designatedPoints
+                                  let timeSlice = element.TimeSlice
+                                  let designatedPointTimeSlice = timeSlice
+                                  .Select(x => x.DesignatedPointTimeSlice)
+                                  .First()
+                                  let locationElement = designatedPointTimeSlice.Location
+                                  let pointElement = locationElement.Point
+                                  let posElement = pointElement.Pos
+                                  let srsName = posElement.SrsName.Split(':')
+                                  let points = posElement.Value.Split(' ')
+                                  select new DesignatedPoint
+                                  {
+                                      Id = element.Identifier.Value,
+                                      Designator = designatedPointTimeSlice.Designator?.Value.ToUpper(),
+                                      //Designator = designatedPointTimeSlice.Designator?.Value.ToLower(),
+                                      Type = designatedPointTimeSlice.Type?.Value,
+                                      Name = designatedPointTimeSlice.Name1?.Value,
+                                      Location = factory.CreatePoint(points[0], points[1])
+                                  })
             {
-                new Position(52.379790828551016, 5.3173828125),
-                new Position(52.36721467920585, 5.456085205078125),
-                new Position(52.303440474272755, 5.386047363281249, 4.23)
-            });
-            multiLineString = new MultiLineString(new List<LineString>
+                hashSet.Add(point);
+            }
+
+            processStopwatch.Stop();
+            Trace.WriteLine($"Generating designated points completed, completion time: {DateTime.Now}, {hashSet.Count} rows generated, elapsed time: {processStopwatch.Elapsed:g}");
+            Console.WriteLine($"Generating designated points completed, completion time: {DateTime.Now}, {hashSet.Count} rows generated, elapsed time: {processStopwatch.Elapsed:g}");
+
+            return hashSet.ToList();
+        }
+
+        private static List<DesignatedPoint> GenerateDesignatedPoints(int count)
+        {
+            var hashSet = new HashSet<DesignatedPoint>();
+
+            foreach (var entity in DesignatedPointFaker.Generate(count))
             {
-                new LineString(new List<IPosition>
-                {
-                    new Position(52.379790828551016, 5.3173828125),
-                    new Position(52.36721467920585, 5.456085205078125),
-                    new Position(52.303440474272755, 5.386047363281249, 4.23)
-                }),
-                new LineString(new List<IPosition>
-                {
-                    new Position(52.379790828551016, 5.3273828125),
-                    new Position(52.36721467920585, 5.486085205078125),
-                    new Position(52.303440474272755, 5.426047363281249, 4.23)
-                })
-            });
-            polygon = new Polygon(new List<LineString>
-                {
-                    new LineString(new List<Position>
-                    {
-                        new Position(52.379790828551016, 5.3173828125),
-                        new Position(52.303440474272755, 5.386047363281249, 4.23),
-                        new Position(52.36721467920585, 5.456085205078125),
-                        new Position(52.379790828551016, 5.3173828125)
-                    })
-                });
-            multiPolygon = new MultiPolygon(new List<Polygon>
-                {
-                    new Polygon(new List<LineString>
-                    {
-                        new LineString(new List<IPosition>
-                        {
-                            new Position(52.959676831105995, -2.6797102391514338),
-                            new Position(52.930592009390175, -2.6548779332193022),
-                            new Position(52.89564268523565, -2.6931334629377890),
-                            new Position(52.878791122091066, -2.6932445076063951),
-                            new Position(52.875255907042678, -2.6373482332006359),
-                            new Position(52.882954723868622, -2.6050779098387191),
-                            new Position(52.875476700983896, -2.5851645010668989),
-                            new Position(52.891287242948195, -2.5815104708998668),
-                            new Position(52.908449372833715, -2.6079763270327119),
-                            new Position(52.9608756693609, -2.6769029474483279),
-                            new Position(52.959676831105995, -2.6797102391514338),
-                        })
-                    }),
-                    new Polygon(new List<LineString>
-                    {
-                        new LineString(new List<IPosition>
-                        {
-                            new Position(52.89610842810761, -2.69628632041613),
-                            new Position(52.926572918779222, -2.6996509024137052),
-                            new Position(52.920394929466184, -2.772273870352612),
-                            new Position(52.937353122653533, -2.7978187468478741),
-                            new Position(52.94013913205788, -2.838979264607087),
-                            new Position(52.929801009654575, -2.83848602260174),
-                            new Position(52.90253773227807, -2.804554822840895),
-                            new Position(52.89938894657412, -2.7663172788742449),
-                            new Position(52.8894641454077, -2.75901233808515),
-                            new Position(52.89610842810761, -2.69628632041613)
-                        })
-                    })
-                });
-            geomCollection = new GeometryCollection(new List<IGeometryObject>
+                hashSet.Add(entity);
+            }
+
+            return hashSet.ToList();
+        }
+
+        private static void SynchronizeDesignatedPoints(List<DesignatedPoint> designatedPoints)
+        {
+            var context = new EfObjectContext("SpatialData");
+            var repository = new EfRepository<DesignatedPoint>(context, false);
+
+            // TODO: Optimize
+            #region Slow
+
+            var sourceIds = designatedPoints.Select(x => x.Id).ToList();
+
+            var databaseIds = repository.TableUntracked.Select(x => x.Id).ToList();
+
+            var toDeleteIds = databaseIds.Except(sourceIds).ToList();
+            var toInsertIds = sourceIds.Where(x => !databaseIds.Contains(x)).ToList();
+            var toUpdateIds = databaseIds.Where(x => sourceIds.Contains(x)).ToList();
+
+            var toDeleteEntities = databaseIds.Where(x => toDeleteIds.Contains(x)).ToList();
+            var toInsertEntities = designatedPoints.Where(x => toInsertIds.Contains(x.Id)).ToList();
+            var toUpdateEntities = designatedPoints.Where(x => toUpdateIds.Contains(x.Id)).ToList();
+
+            #endregion
+
+            Delete(toDeleteEntities, repository);
+            Insert(toInsertEntities, repository);
+            Update(toUpdateEntities, repository);
+        }
+
+        private static void Insert(List<DesignatedPoint> list, IRepository<DesignatedPoint> repository)
+        {
+            var remainingPoints = list.Count;
+            var numberOfPoints = list.Count;
+
+            Trace.WriteLine($"Insert process started at: {DateTime.Now}, {numberOfPoints} entities to insert");
+            Console.WriteLine($"Insert process started at: {DateTime.Now}, {numberOfPoints} entities to insert");
+
+            var processStopwatch = new Stopwatch();
+            processStopwatch.Start();
+            var changes = 0;
+
+            if (!list.Any())
             {
-                point,
-                multiPoint,
-                lineString,
-                multiLineString,
-                polygon,
-                multiPolygon
-            });
+                processStopwatch.Stop();
+                Trace.WriteLine($"Insert process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+                Console.WriteLine($"Insert process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+                return;
+            }
+
+            var operationStopwatch = new Stopwatch();
+            for (var i = 0; i < numberOfPoints; i++)
+            {
+                var point = list[i];
+
+                operationStopwatch.Start();
+
+                repository.Insert(point);
+
+                Trace.WriteLine($"\tRecord {numberOfPoints - --remainingPoints}/{numberOfPoints} inserted, elapsed time: {operationStopwatch.Elapsed.TotalMilliseconds} ms");
+
+                if (i != 0 && i % 100 == 0 || i == numberOfPoints - 1)
+                {
+                    changes += repository.SaveChanges();
+                }
+
+                operationStopwatch.Reset();
+            }
+
+            processStopwatch.Stop();
+            Trace.WriteLine($"Insert process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+            Console.WriteLine($"Insert process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+        }
+
+        private static void Update(List<DesignatedPoint> list, IRepository<DesignatedPoint> repository)
+        {
+            var remainingPoints = list.Count;
+            var numberOfPoints = list.Count;
+
+            Trace.WriteLine($"Update process started at: {DateTime.Now}, {numberOfPoints} entities to update");
+            Console.WriteLine($"Update process started at: {DateTime.Now}, {numberOfPoints} entities to update");
+
+            var processStopwatch = new Stopwatch();
+            processStopwatch.Start();
+            var changes = 0;
+
+            if (!list.Any())
+            {
+                processStopwatch.Stop();
+                Trace.WriteLine($"Update process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+                Console.WriteLine($"Update process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+                return;
+            }
+
+            var operationStopwatch = new Stopwatch();
+            for (var i = 0; i < numberOfPoints; i++)
+            {
+                var entity = list[i];
+
+                operationStopwatch.Start();
+
+                var fromStore = repository.GetById(entity.Id);
+
+                if (fromStore != entity)
+                {
+                    fromStore.Name = entity.Name;
+                    fromStore.Type = entity.Type;
+                    fromStore.Designator = entity.Designator;
+                    fromStore.Location = entity.Location;
+
+                    repository.Update(fromStore);
+
+                    Trace.WriteLine($"\tRecord {numberOfPoints - --remainingPoints}/{numberOfPoints} updated, elapsed time: {operationStopwatch.Elapsed.TotalMilliseconds} ms");
+                }
+                else
+                {
+                    Trace.WriteLine($"\tRecord {numberOfPoints - --remainingPoints}/{numberOfPoints} identical, elapsed time: {operationStopwatch.Elapsed.TotalMilliseconds} ms");
+                }
+
+                if (i != 0 && i % 100 == 0 || i == numberOfPoints - 1)
+                {
+                    changes += repository.SaveChanges();
+                }
+
+                operationStopwatch.Reset();
+            }
+
+            processStopwatch.Stop();
+            Trace.WriteLine($"Update process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+            Console.WriteLine($"Update process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+        }
+
+        private static void Delete(List<string> list, IRepository<DesignatedPoint> repository)
+        {
+            var remainingPoints = list.Count;
+            var numberOfPoints = list.Count;
+
+            Trace.WriteLine($"Delete process started at: {DateTime.Now}, {numberOfPoints} entities to delete");
+            Console.WriteLine($"Delete process started at: {DateTime.Now}, {numberOfPoints} entities to delete");
+
+            var processStopwatch = new Stopwatch();
+            processStopwatch.Start();
+            var changes = 0;
+
+            if (!list.Any())
+            {
+                processStopwatch.Stop();
+                Trace.WriteLine($"Delete process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+                Console.WriteLine($"Delete process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+                return;
+            }
+
+            var operationStopwatch = new Stopwatch();
+            for (var i = 0; i < numberOfPoints; i++)
+            {
+                var id = list[i];
+
+                operationStopwatch.Start();
+
+                changes += repository.Delete(id);
+
+                Trace.WriteLine($"\tRecord {numberOfPoints - --remainingPoints}/{numberOfPoints} deleted, elapsed time: {operationStopwatch.Elapsed.TotalMilliseconds} ms");
+
+                //if (i != 0 && i % 100 == 0 || i == numberOfPoints - 1)
+                //{
+                //    changes += repository.SaveChanges();
+                //}
+
+                operationStopwatch.Reset();
+            }
+
+            processStopwatch.Stop();
+            Trace.WriteLine($"Delete process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
+            Console.WriteLine($"Delete process completion time: {DateTime.Now}, {changes} rows affected, elapsed time: {processStopwatch.Elapsed:g}");
         }
     }
 }

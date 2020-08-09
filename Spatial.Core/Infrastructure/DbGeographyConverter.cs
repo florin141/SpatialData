@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace SpatialData.Converters
+namespace Spatial.Core.Infrastructure
 {
     public class DbGeographyConverter : JsonConverter
     {
